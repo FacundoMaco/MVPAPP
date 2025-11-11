@@ -1,21 +1,110 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, X, Bell, ArrowLeft, MapPin, Clock } from "lucide-react";
+import { AlertTriangle, X, Bell, ArrowLeft, MapPin, Clock, Video } from "lucide-react";
 
 interface Alert {
   id: string;
   title: string;
   message: string;
   location: string;
+  source: string;
   timestamp: Date;
 }
+
+const STORAGE_KEY = "security_alerts";
+
+// Alertas precargadas
+const getInitialAlerts = (): Alert[] => {
+  const now = new Date();
+  return [
+    {
+      id: "1",
+      title: "Alerta de Seguridad",
+      message: "Actividad sospechosa detectada en el área restringida",
+      location: "Calle Los Poetas 290 - Surco",
+      source: "Cámara AI",
+      timestamp: new Date(now.getTime() - 15 * 60000), // 15 minutos atrás
+    },
+    {
+      id: "2",
+      title: "Movimiento Detectado",
+      message: "Persona no autorizada intentando acceder a zona privada",
+      location: "Av. Larco 1200 - Miraflores",
+      source: "Cámara AI",
+      timestamp: new Date(now.getTime() - 30 * 60000), // 30 minutos atrás
+    },
+    {
+      id: "3",
+      title: "Intrusión Detectada",
+      message: "Vehículo sospechoso estacionado en zona prohibida",
+      location: "Av. Javier Prado Este 4200 - San Borja",
+      source: "Cámara AI",
+      timestamp: new Date(now.getTime() - 45 * 60000), // 45 minutos atrás
+    },
+  ];
+};
+
+// Función para cargar alertas desde localStorage
+const loadAlertsFromStorage = (): Alert[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Convertir timestamps de string a Date
+      return parsed.map((alert: any) => ({
+        ...alert,
+        timestamp: new Date(alert.timestamp),
+      }));
+    }
+  } catch (error) {
+    console.error("Error loading alerts from storage:", error);
+  }
+  return getInitialAlerts();
+};
+
+// Función para guardar alertas en localStorage
+const saveAlertsToStorage = (alerts: Alert[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(alerts));
+  } catch (error) {
+    console.error("Error saving alerts to storage:", error);
+  }
+};
 
 export function AuthorityDashboard() {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Cargar alertas desde localStorage al montar el componente
+  useEffect(() => {
+    const loadedAlerts = loadAlertsFromStorage();
+    setAlerts(loadedAlerts);
+    setIsInitialized(true);
+    // Si no hay alertas guardadas, guardar las iniciales
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      saveAlertsToStorage(loadedAlerts);
+    }
+  }, []);
+
+  // Guardar alertas en localStorage cada vez que cambien (solo después de inicializar)
+  useEffect(() => {
+    if (isInitialized && alerts.length >= 0) {
+      saveAlertsToStorage(alerts);
+    }
+  }, [alerts, isInitialized]);
+
+  // Fuentes disponibles para las alertas
+  const alertSources = [
+    "Cámara AI",
+    "Sensor de Movimiento",
+    "Sistema de Seguridad",
+    "Patrulla Ciudadana",
+    "Centro de Monitoreo",
+  ];
 
   // Ubicaciones reales en Lima, Perú
   const locations = [
@@ -68,16 +157,18 @@ export function AuthorityDashboard() {
   ];
 
   const handleSimulateAlert = () => {
-    // Seleccionar aleatoriamente ubicación, mensaje y título
+    // Seleccionar aleatoriamente ubicación, mensaje, título y fuente
     const randomLocation = locations[Math.floor(Math.random() * locations.length)];
     const randomMessage = alertMessages[Math.floor(Math.random() * alertMessages.length)];
     const randomTitle = alertTitles[Math.floor(Math.random() * alertTitles.length)];
+    const randomSource = alertSources[Math.floor(Math.random() * alertSources.length)];
 
     const newAlert: Alert = {
       id: Date.now().toString(),
       title: randomTitle,
       message: randomMessage,
       location: randomLocation,
+      source: randomSource,
       timestamp: new Date(),
     };
 
@@ -189,6 +280,10 @@ export function AuthorityDashboard() {
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <MapPin className="h-4 w-4 text-primary" />
                             <span><strong>Ubicación:</strong> {alert.location}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Video className="h-4 w-4 text-primary" />
+                            <span><strong>Fuente:</strong> {alert.source}</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-4 w-4 text-primary" />
